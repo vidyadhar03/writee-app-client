@@ -95,6 +95,14 @@ export default function ServiceBookingScreen() {
     setFormData((prev) => ({ ...prev, [fieldId]: value }));
 
   const handleTakePhoto = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert(
+        'Permission Denied',
+        'You need to allow camera access to take a photo.',
+      );
+      return;
+    }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
     if (!result.canceled && result.assets.length > 0) {
       const asset = result.assets[0];
