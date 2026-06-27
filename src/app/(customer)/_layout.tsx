@@ -1,5 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
+import { TouchableOpacity } from 'react-native';
 
 const PRIMARY = '#1ED760';
 const DARK_GREEN = '#06311E';
@@ -12,6 +13,8 @@ type IconProps = {
 };
 
 export default function CustomerTabLayout() {
+  const router = useRouter();
+
   return (
     <Tabs
       screenOptions={{
@@ -94,6 +97,19 @@ export default function CustomerTabLayout() {
           },
           headerShadowVisible: false,
           tabBarStyle: { display: 'none' },
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{ paddingHorizontal: 12, paddingVertical: 8 }}
+              activeOpacity={0.6}
+            >
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color={DARK_GREEN}
+              />
+            </TouchableOpacity>
+          ),
         }}
       />
     </Tabs>

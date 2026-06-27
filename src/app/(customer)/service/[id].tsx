@@ -16,24 +16,79 @@ const PRIMARY = '#1ED760';
 const DARK_GREEN = '#06311E';
 const BG = '#F7F9F8';
 
-/** Convert "agreement-writing" → "Agreement Writing" */
-function formatSlug(slug: string): string {
-  return slug
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
+type FieldConfig = {
+  id: string;
+  label: string;
+  type: 'text' | 'multiline';
+  icon: string;
+};
+
+type ServiceConfig = {
+  title: string;
+  fields: FieldConfig[];
+};
+
+const serviceFormsConfig: Record<string, ServiceConfig> = {
+  'property-registrations': {
+    title: 'Property Registrations',
+    fields: [
+      { id: 'partyOne', label: 'First Party (Buyer/Donee) Name', type: 'text', icon: 'account' },
+      { id: 'partyTwo', label: 'Second Party (Seller/Donor) Name', type: 'text', icon: 'account-outline' },
+      { id: 'propertyLocation', label: 'Property Location (Mandal/Village)', type: 'text', icon: 'map-marker' },
+    ],
+  },
+  'agreement-writing': {
+    title: 'Agreement Writing',
+    fields: [
+      { id: 'partyOne', label: 'First Party Name (e.g., Landlord)', type: 'text', icon: 'account' },
+      { id: 'partyTwo', label: 'Second Party Name (e.g., Tenant)', type: 'text', icon: 'account-outline' },
+      { id: 'terms', label: 'Key Terms / Rent Amount', type: 'multiline', icon: 'text-box' },
+    ],
+  },
+  'property-info': {
+    title: 'Property Info (EC/Adangal)',
+    fields: [
+      { id: 'surveyNumber', label: 'Survey Number', type: 'text', icon: 'map-marker-path' },
+      { id: 'village', label: 'Village / Mandal', type: 'text', icon: 'home-city' },
+      { id: 'yearRange', label: 'Year Range (e.g., 1980-2023)', type: 'text', icon: 'calendar-range' },
+    ],
+  },
+  'complaints': {
+    title: 'Complaints Drafting',
+    fields: [
+      { id: 'applicantName', label: 'Complainant Name', type: 'text', icon: 'account' },
+      { id: 'against', label: 'Complaint Against', type: 'text', icon: 'account-alert' },
+      { id: 'description', label: 'Incident Description', type: 'multiline', icon: 'text-box' },
+    ],
+  },
+  'notary-services': {
+    title: 'Notary Services',
+    fields: [
+      { id: 'applicantName', label: 'Applicant Full Name', type: 'text', icon: 'account' },
+      { id: 'purpose', label: 'Purpose of Affidavit', type: 'text', icon: 'briefcase' },
+      { id: 'details', label: 'Additional Details', type: 'multiline', icon: 'text-box' },
+    ],
+  },
+  'default': {
+    title: 'Book Service',
+    fields: [
+      { id: 'fullName', label: 'Full Name', type: 'text', icon: 'account' },
+      { id: 'details', label: 'Requirement Details', type: 'multiline', icon: 'text-box' },
+    ],
+  },
+};
 
 type ServiceMode = 'online' | 'agent';
 
 export default function ServiceBookingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const serviceTitle = formatSlug(id ?? '');
+  const currentConfig = serviceFormsConfig[id ?? ''] ?? serviceFormsConfig['default'];
 
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [notes, setNotes] = useState('');
+  const [formData, setFormData] = useState<Record<string, string>>({});
   const [mode, setMode] = useState<ServiceMode>('online');
+
+  const handleInputChange = (fieldId: string, value: string) =>
+    setFormData((prev) => ({ ...prev, [fieldId]: value }));
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -51,11 +106,11 @@ export default function ServiceBookingScreen() {
           {/* ── Service Title ── */}
           <View style={styles.titleBlock}>
             <Text style={styles.serviceTag}>Booking Form</Text>
-            <Text style={styles.serviceTitle}>{serviceTitle}</Text>
+            <Text style={styles.serviceTitle}>{currentConfig.title}</Text>
           </View>
 
           {/* ════════════════════════════════
-              Section 1 — Basic Details
+              Section 1 — Basic Details (dynamic)
           ════════════════════════════════ */}
           <View style={styles.section}>
             <View style={styles.sectionLabelRow}>
@@ -67,50 +122,26 @@ export default function ServiceBookingScreen() {
               <Text style={styles.sectionLabel}>Basic Details</Text>
             </View>
 
-            <TextInput
-              mode="outlined"
-              label="Full Name"
-              placeholder="e.g. Rahul Sharma"
-              value={fullName}
-              onChangeText={setFullName}
-              outlineColor="#D8E2DC"
-              activeOutlineColor={PRIMARY}
-              outlineStyle={styles.inputOutline}
-              style={styles.input}
-              left={<TextInput.Icon icon="account-outline" color="#8CA898" />}
-            />
-
-            <TextInput
-              mode="outlined"
-              label="Phone Number"
-              placeholder="10-digit mobile number"
-              keyboardType="phone-pad"
-              maxLength={10}
-              value={phone}
-              onChangeText={setPhone}
-              outlineColor="#D8E2DC"
-              activeOutlineColor={PRIMARY}
-              outlineStyle={styles.inputOutline}
-              style={styles.input}
-              left={<TextInput.Icon icon="phone-outline" color="#8CA898" />}
-              right={<TextInput.Affix text="+91" textStyle={styles.affixText} />}
-            />
-
-            <TextInput
-              mode="outlined"
-              label="Requirement Details / Notes"
-              placeholder="Describe what you need in detail…"
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={4}
-              outlineColor="#D8E2DC"
-              activeOutlineColor={PRIMARY}
-              outlineStyle={styles.inputOutline}
-              style={[styles.input, styles.textArea]}
-              contentStyle={styles.textAreaContent}
-              left={<TextInput.Icon icon="text-box-outline" color="#8CA898" />}
-            />
+            {currentConfig.fields.map((field) => {
+              const isMultiline = field.type === 'multiline';
+              return (
+                <TextInput
+                  key={field.id}
+                  mode="outlined"
+                  label={field.label}
+                  value={formData[field.id] ?? ''}
+                  onChangeText={(text) => handleInputChange(field.id, text)}
+                  multiline={isMultiline}
+                  numberOfLines={isMultiline ? 4 : 1}
+                  outlineColor="#D8E2DC"
+                  activeOutlineColor={PRIMARY}
+                  outlineStyle={styles.inputOutline}
+                  style={[styles.input, isMultiline && styles.textArea]}
+                  contentStyle={isMultiline ? styles.textAreaContent : undefined}
+                  left={<TextInput.Icon icon={field.icon} color="#8CA898" />}
+                />
+              );
+            })}
           </View>
 
           {/* ════════════════════════════════
