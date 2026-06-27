@@ -1,7 +1,10 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -86,9 +89,39 @@ export default function ServiceBookingScreen() {
 
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [mode, setMode] = useState<ServiceMode>('online');
+  const [uploadedDocs, setUploadedDocs] = useState<{ name: string; uri: string }[]>([]);
 
   const handleInputChange = (fieldId: string, value: string) =>
     setFormData((prev) => ({ ...prev, [fieldId]: value }));
+
+  const handleTakePhoto = async () => {
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+    if (!result.canceled && result.assets.length > 0) {
+      const asset = result.assets[0];
+      const name = asset.uri.split('/').pop() ?? 'Camera_Photo.jpg';
+      setUploadedDocs((prev) => [...prev, { name, uri: asset.uri }]);
+    }
+  };
+
+  const handlePickFile = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true });
+    if (!result.canceled && result.assets.length > 0) {
+      const newDocs = result.assets.map((a) => ({ name: a.name, uri: a.uri }));
+      setUploadedDocs((prev) => [...prev, ...newDocs]);
+    }
+  };
+
+  const promptUpload = () => {
+    Alert.alert('Upload Document', 'Choose an option', [
+      { text: '📷 Take Photo', onPress: handleTakePhoto },
+      { text: '📂 Choose from Device', onPress: handlePickFile },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const removeDoc = (index: number) => {
+    setUploadedDocs((prev) => prev.filter((_, i) => i !== index));
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -157,7 +190,10 @@ export default function ServiceBookingScreen() {
               <Text style={styles.sectionLabel}>Upload Documents</Text>
             </View>
 
-            <Pressable style={({ pressed }) => [styles.uploadBox, pressed && styles.uploadBoxPressed]}>
+            <Pressable
+              onPress={promptUpload}
+              style={({ pressed }) => [styles.uploadBox, pressed && styles.uploadBoxPressed]}
+            >
               <MaterialCommunityIcons
                 name="cloud-upload-outline"
                 size={40}
@@ -171,6 +207,46 @@ export default function ServiceBookingScreen() {
                 <Text style={styles.uploadPillText}>Browse Files</Text>
               </View>
             </Pressable>
+
+            {/* ── Uploaded file list ── */}
+            {uploadedDocs.length > 0 && (
+              <View style={styles.fileList}>
+                {uploadedDocs.map((doc, index) => {
+                  const truncated =
+                    doc.name.length > 32
+                      ? doc.name.slice(0, 29) + '...'
+                      : doc.name;
+                  return (
+                    <View key={index} style={styles.fileRow}>
+                      <View style={styles.fileIconWrap}>
+                        <MaterialCommunityIcons
+                          name="file-document-outline"
+                          size={20}
+                          color={DARK_GREEN}
+                        />
+                      </View>
+                      <Text style={styles.fileName} numberOfLines={1}>
+                        {truncated}
+                      </Text>
+                      <Pressable
+                        onPress={() => removeDoc(index)}
+                        style={({ pressed }) => [
+                          styles.deleteBtn,
+                          pressed && { opacity: 0.5 },
+                        ]}
+                        hitSlop={8}
+                      >
+                        <MaterialCommunityIcons
+                          name="trash-can-outline"
+                          size={18}
+                          color="#E53935"
+                        />
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
 
           {/* ════════════════════════════════
@@ -411,6 +487,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: DARK_GREEN,
+  },
+
+  /* Uploaded file list */
+  fileList: {
+    marginTop: 4,
+    gap: 8,
+  },
+  fileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#E8EDE9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  fileIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#E8F5EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fileName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: DARK_GREEN,
+  },
+  deleteBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: '#FFF0F0',
   },
 
   /* Service Mode */
