@@ -1,7 +1,9 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
@@ -85,14 +87,53 @@ type ServiceMode = 'online' | 'agent';
 
 export default function ServiceBookingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const currentConfig = serviceFormsConfig[id ?? ''] ?? serviceFormsConfig['default'];
 
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [mode, setMode] = useState<ServiceMode>('online');
   const [uploadedDocs, setUploadedDocs] = useState<{ name: string; uri: string }[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const handleInputChange = (fieldId: string, value: string) =>
     setFormData((prev) => ({ ...prev, [fieldId]: value }));
+
+  const submitRequest = async () => {
+    const user = auth().currentUser;
+    if (!user) {
+      Alert.alert('Not signed in', 'Please log in again.');
+      router.replace('/login');
+      return;
+    }
+    setLoading(true);
+    try {
+      // Build a human-readable description from all filled form fields
+      const description = currentConfig.fields
+        .map((f) => `${f.label}: ${formData[f.id] ?? '—'}`)
+        .join('\n');
+
+      await firestore().collection('service_requests').add({
+        userId: user.uid,
+        userEmail: user.email,
+        serviceType: currentConfig.title,
+        description,
+        serviceMode: mode,
+        status: 'Pending',
+        createdAt: firestore.FieldValue.serverTimestamp(),
+      });
+
+      Alert.alert(
+        '✅ Request Submitted',
+        'Your service request has been sent. We will get back to you shortly.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } catch (error) {
+      console.error('Error submitting request:', error);
+      Alert.alert('Error', 'Failed to submit request. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTakePhoto = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
@@ -368,13 +409,15 @@ export default function ServiceBookingScreen() {
           <Button
             mode="contained"
             buttonColor={PRIMARY}
-            onPress={() => {}}
+            onPress={submitRequest}
+            loading={loading}
+            disabled={loading}
             style={styles.proceedBtn}
             contentStyle={styles.proceedBtnContent}
             labelStyle={styles.proceedBtnLabel}
             icon="arrow-right"
           >
-            Proceed to Review
+            {loading ? 'Submitting…' : 'Proceed to Review'}
           </Button>
         </View>
       </KeyboardAvoidingView>

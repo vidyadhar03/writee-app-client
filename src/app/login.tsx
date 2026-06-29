@@ -1,4 +1,9 @@
-import auth, { signInWithPhoneNumber } from '@react-native-firebase/auth';
+// ─────────────────────────────────────────────────────────────────────────────
+// PHONE AUTH IMPORT (commented out for demo — uncomment to restore)
+// import auth, { signInWithPhoneNumber } from '@react-native-firebase/auth';
+// ─────────────────────────────────────────────────────────────────────────────
+
+// EMAIL AUTH IMPORT
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
@@ -11,37 +16,51 @@ const BG = '#F7F9F8';
 
 export default function MobileLoginScreen() {
   const router = useRouter();
-  const [mobile, setMobile] = useState('');
+
+  // ─── PHONE AUTH STATE (commented out for demo) ───────────────────────────
+  // const [mobile, setMobile] = useState('');
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // EMAIL AUTH STATE
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleGetOtp = async () => {
-    const formattedPhone = `+91${mobile}`;
-    setLoading(true);
-    try {
-      // Force testing mode to bypass Apple's APNs requirement for dummy numbers
-      auth().settings.appVerificationDisabledForTesting = true;
+  // ─── PHONE AUTH HANDLER (commented out for demo) ─────────────────────────
+  // const handleGetOtp = async () => {
+  //   const formattedPhone = `+91${mobile}`;
+  //   setLoading(true);
+  //   try {
+  //     // Force testing mode to bypass Apple's APNs requirement for dummy numbers
+  //     auth().settings.appVerificationDisabledForTesting = true;
+  //
+  //     // Clean the phone number string
+  //     const cleanPhone = formattedPhone.replace(/\s+/g, '');
+  //
+  //     // Request OTP
+  //     const confirmation = await signInWithPhoneNumber(auth(), cleanPhone);
+  //     router.push({
+  //       pathname: '/otp',
+  //       params: {
+  //         verificationId: confirmation.verificationId,
+  //         phone: formattedPhone,
+  //       },
+  //     });
+  //   } catch (error: any) {
+  //     console.error('OTP send error:', error);
+  //     Alert.alert(
+  //       'Failed to send OTP',
+  //       error?.message ?? 'Please check the phone number and try again.'
+  //     );
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+  // ─────────────────────────────────────────────────────────────────────────
 
-      // Clean the phone number string
-      const cleanPhone = formattedPhone.replace(/\s+/g, '');
-
-      // Request OTP
-      const confirmation = await signInWithPhoneNumber(auth(), cleanPhone);
-      router.push({
-        pathname: '/otp',
-        params: {
-          verificationId: confirmation.verificationId,
-          phone: formattedPhone,
-        },
-      });
-    } catch (error: any) {
-      console.error('OTP send error:', error);
-      Alert.alert(
-        'Failed to send OTP',
-        error?.message ?? 'Please check the phone number and try again.'
-      );
-    } finally {
-      setLoading(false);
-    }
+  // EMAIL AUTH HANDLER
+  const handleEmailSubmit = () => {
+    if (!email) return;
+    router.push({ pathname: '/otp', params: { email } });
   };
 
   return (
@@ -62,6 +81,7 @@ export default function MobileLoginScreen() {
 
         {/* Form Card */}
         <View style={styles.card}>
+          {/* ── PHONE AUTH UI (commented out for demo) ──────────────────────
           <Text style={styles.cardLabel}>Enter your mobile number</Text>
           <TextInput
             mode="outlined"
@@ -83,7 +103,6 @@ export default function MobileLoginScreen() {
             outlineColor="#D0D5DD"
             activeOutlineColor={PRIMARY}
           />
-
           <Button
             mode="contained"
             onPress={handleGetOtp}
@@ -98,6 +117,41 @@ export default function MobileLoginScreen() {
             buttonColor={PRIMARY}
           >
             {loading ? 'Sending OTP…' : 'Get OTP'}
+          </Button>
+          ── END PHONE AUTH UI ─────────────────────────────────────────────── */}
+
+          {/* EMAIL AUTH UI */}
+          <Text style={styles.cardLabel}>Enter your email address</Text>
+          <TextInput
+            mode="outlined"
+            label="Email Address"
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            value={email}
+            onChangeText={setEmail}
+            outlineStyle={styles.inputOutline}
+            style={styles.input}
+            contentStyle={styles.inputContent}
+            outlineColor="#D0D5DD"
+            activeOutlineColor={PRIMARY}
+          />
+
+          <Button
+            mode="contained"
+            onPress={handleEmailSubmit}
+            disabled={!email || loading}
+            loading={loading}
+            style={[
+              styles.button,
+              (!email || loading) && styles.buttonDisabled,
+            ]}
+            contentStyle={styles.buttonContent}
+            labelStyle={styles.buttonLabel}
+            buttonColor={PRIMARY}
+          >
+            Continue
           </Button>
         </View>
 

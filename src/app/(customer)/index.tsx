@@ -1,4 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -55,6 +57,26 @@ const SERVICES = [
 export default function CustomerHomeScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+
+  // ── Firestore: create a service request when a card is tapped ─────────────
+  const submitRequest = async (selectedService: string, requestDescription: string) => {
+    try {
+      const user = auth().currentUser;
+      if (!user) return;
+
+      await firestore().collection('service_requests').add({
+        userId: user.uid,
+        userEmail: user.email,
+        serviceType: selectedService,
+        description: requestDescription,
+        status: 'Pending',
+        createdAt: firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Error submitting request:', error);
+    }
+  };
+  // ──────────────────────────────────────────────────────────────────────────
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -131,9 +153,11 @@ export default function CustomerHomeScreen() {
               key={service.id}
               style={styles.gridItem}
               activeOpacity={0.75}
-              onPress={() =>
-                router.push(`/(customer)/service/${service.slug}`)
-              }
+              onPress={() => {
+                // Submit a Pending service request, then navigate to the detail screen
+                submitRequest(service.label, searchQuery);
+                router.push(`/(customer)/service/${service.slug}`);
+              }}
             >
               <Card style={styles.serviceCard} mode="elevated">
                 <View style={styles.serviceCardContent}>

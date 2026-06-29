@@ -1,6 +1,22 @@
-import { auth, firestore } from '@/config/firebase';
+// ─────────────────────────────────────────────────────────────────────────────
+// PHONE AUTH IMPORT (commented out for demo — uncomment to restore)
+// import { auth, firestore } from '@/config/firebase';
+// ─────────────────────────────────────────────────────────────────────────────
+
+// EMAIL AUTH IMPORTS
+import firestore from '@react-native-firebase/firestore';
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  signInWithEmailAndPassword,
+} from '@react-native-firebase/auth';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+
+// ─── PHONE AUTH STATE IMPORTS (commented out for demo) ───────────────────────
+// import { useRef, useState } from 'react';
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Button, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,63 +27,133 @@ const BG = '#F7F9F8';
 
 export default function OtpScreen() {
   const router = useRouter();
-  const { verificationId } = useLocalSearchParams<{ verificationId: string }>();
-  const [otp, setOtp] = useState('');
-  const [resent, setResent] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const inputRef = useRef<any>(null);
 
-  const handleVerify = async () => {
-    if (!verificationId) {
-      Alert.alert('Error', 'Verification ID is missing. Please go back and try again.');
-      return;
-    }
+  // ─── PHONE AUTH PARAMS (commented out for demo) ──────────────────────────
+  // const { verificationId } = useLocalSearchParams<{ verificationId: string }>();
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // EMAIL AUTH PARAMS
+  const { email } = useLocalSearchParams<{ email: string }>();
+
+  // ─── PHONE AUTH STATE (commented out for demo) ───────────────────────────
+  // const [otp, setOtp] = useState('');
+  // const [resent, setResent] = useState(false);
+  // const inputRef = useRef<any>(null);
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // EMAIL AUTH STATE
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // ─── PHONE AUTH HANDLER (commented out for demo) ─────────────────────────
+  // const handleVerify = async () => {
+  //   if (!verificationId) {
+  //     Alert.alert('Error', 'Verification ID is missing. Please go back and try again.');
+  //     return;
+  //   }
+  //   setLoading(true);
+  //   try {
+  //     // Build credential and sign in using native RNFirebase
+  //     const credential = auth.PhoneAuthProvider.credential(verificationId, otp);
+  //     await auth().signInWithCredential(credential);
+  //
+  //     // Sync user record to Firestore
+  //     const user = auth().currentUser;
+  //     if (user) {
+  //       const userRef = firestore().collection('users').doc(user.uid);
+  //       const userDoc = await userRef.get();
+  //
+  //       if (!userDoc.exists) {
+  //         await userRef.set({
+  //           uid: user.uid,
+  //           phoneNumber: user.phoneNumber,
+  //           role: 'customer',
+  //           activeStatus: 'active',
+  //           createdAt: firestore.FieldValue.serverTimestamp(),
+  //           updatedAt: firestore.FieldValue.serverTimestamp(),
+  //         });
+  //       }
+  //     }
+  //
+  //     router.replace('/(customer)');
+  //   } catch (error: any) {
+  //     console.error('OTP verification error:', error);
+  //     const message =
+  //       error?.code === 'auth/invalid-verification-code'
+  //         ? 'The OTP you entered is incorrect. Please check and try again.'
+  //         : error?.message ?? 'Verification failed. Please try again.';
+  //     Alert.alert('Verification Failed', message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+  //
+  // const handleResend = () => {
+  //   setResent(true);
+  //   setTimeout(() => setResent(false), 3000);
+  // };
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // EMAIL AUTH HANDLER
+  const handlePasswordSubmit = async () => {
+    if (!email || !password) return;
     setLoading(true);
     try {
-      // Build credential and sign in using native RNFirebase
-      const credential = auth.PhoneAuthProvider.credential(verificationId, otp);
-      await auth().signInWithCredential(credential);
+      const auth = getAuth();
+      let user;
 
-      // Sync user record to Firestore
-      const user = auth().currentUser;
-      if (user) {
-        const userRef = firestore().collection('users').doc(user.uid);
-        const userDoc = await userRef.get();
-
-        if (!userDoc.exists) {
-          await userRef.set({
-            uid: user.uid,
-            phoneNumber: user.phoneNumber,
-            role: 'customer',
-            activeStatus: 'active',
-            createdAt: firestore.FieldValue.serverTimestamp(),
-            updatedAt: firestore.FieldValue.serverTimestamp(),
-          });
+      try {
+        // Try to sign in
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        user = userCredential.user;
+      } catch (error: any) {
+        // If user doesn't exist, create them
+        if (
+          error.code === 'auth/user-not-found' ||
+          error.code === 'auth/invalid-credential'
+        ) {
+          const newUserCredential = await createUserWithEmailAndPassword(
+            auth,
+            email,
+            password
+          );
+          user = newUserCredential.user;
+        } else {
+          throw error;
         }
+      }
+
+      // Sync with Firestore
+      const userRef = firestore().collection('users').doc(user.uid);
+      const userDoc = await userRef.get();
+
+      if (!userDoc.exists) {
+        await userRef.set({
+          uid: user.uid,
+          email: user.email, // Use email instead of phoneNumber
+          role: 'customer',
+          activeStatus: 'active',
+          createdAt: firestore.FieldValue.serverTimestamp(),
+          updatedAt: firestore.FieldValue.serverTimestamp(),
+        });
       }
 
       router.replace('/(customer)');
     } catch (error: any) {
-      console.error('OTP verification error:', error);
-      const message =
-        error?.code === 'auth/invalid-verification-code'
-          ? 'The OTP you entered is incorrect. Please check and try again.'
-          : error?.message ?? 'Verification failed. Please try again.';
-      Alert.alert('Verification Failed', message);
+      console.error('Email/Password error:', error);
+      Alert.alert(
+        'Authentication Failed',
+        error?.message ?? 'Please check your credentials and try again.'
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResend = () => {
-    setResent(true);
-    setTimeout(() => setResent(false), 3000);
-  };
-
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        {/* Back nav hint */}
+        {/* Back nav */}
         <Button
           mode="text"
           onPress={() => router.back()}
@@ -86,15 +172,60 @@ export default function OtpScreen() {
           </View>
         </View>
 
-        {/* Header */}
+        {/* Header — EMAIL AUTH */}
+        <View style={styles.headerContainer}>
+          <Text style={styles.header}>Enter your password</Text>
+          <Text style={styles.subheader}>
+            {email ? `Signing in as ${email}` : 'Set or enter your password to continue.'}
+          </Text>
+        </View>
+
+        {/* ── PHONE AUTH HEADER (commented out for demo) ─────────────────────
         <View style={styles.headerContainer}>
           <Text style={styles.header}>Verify your number</Text>
           <Text style={styles.subheader}>
             Enter the 6-digit code sent to your phone.
           </Text>
         </View>
+        ── END PHONE AUTH HEADER ─────────────────────────────────────────── */}
 
-        {/* OTP Card */}
+        {/* Password Card — EMAIL AUTH */}
+        <View style={styles.card}>
+          <TextInput
+            mode="outlined"
+            label="Password"
+            placeholder="Enter your password"
+            secureTextEntry
+            autoCapitalize="none"
+            value={password}
+            onChangeText={setPassword}
+            autoFocus
+            outlineStyle={styles.inputOutline}
+            style={styles.input}
+            contentStyle={styles.inputContent}
+            outlineColor="#D0D5DD"
+            activeOutlineColor={PRIMARY}
+          />
+
+          <Button
+            mode="contained"
+            onPress={handlePasswordSubmit}
+            disabled={!password || loading}
+            loading={loading}
+            style={[
+              styles.button,
+              (!password || loading) && styles.buttonDisabled,
+            ]}
+            contentStyle={styles.buttonContent}
+            labelStyle={styles.buttonLabel}
+            buttonColor={PRIMARY}
+            icon="shield-check"
+          >
+            {loading ? 'Signing in…' : 'Verify & Login'}
+          </Button>
+        </View>
+
+        {/* ── PHONE AUTH OTP CARD (commented out for demo) ───────────────────
         <View style={styles.card}>
           <TextInput
             ref={inputRef}
@@ -113,7 +244,6 @@ export default function OtpScreen() {
             activeOutlineColor={PRIMARY}
           />
 
-          {/* Dot progress indicators */}
           <View style={styles.dotsRow}>
             {Array.from({ length: 6 }).map((_, i) => (
               <View
@@ -144,7 +274,6 @@ export default function OtpScreen() {
           </Button>
         </View>
 
-        {/* Resend */}
         <View style={styles.resendContainer}>
           {resent ? (
             <Text style={styles.resentText}>✅ OTP sent again!</Text>
@@ -162,6 +291,7 @@ export default function OtpScreen() {
             </>
           )}
         </View>
+        ── END PHONE AUTH OTP CARD ──────────────────────────────────────── */}
       </View>
     </SafeAreaView>
   );
@@ -236,15 +366,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
   inputContent: {
-    fontSize: 28,
-    letterSpacing: 12,
-    textAlign: 'center',
+    fontSize: 17,
+    letterSpacing: 1,
     color: DARK_GREEN,
-    fontWeight: '700',
   },
   inputOutline: {
     borderRadius: 12,
   },
+  // OTP dot indicators — kept for easy Phone Auth restore
   dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
