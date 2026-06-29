@@ -58,6 +58,14 @@ export default function CustomerHomeScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
 
+  // ── Dynamic greeting & name ──────────────────────────────────────────────
+  const userName = auth().currentUser?.email?.split('@')[0] || 'User';
+  const currentHour = new Date().getHours();
+  let greeting = 'Good evening,';
+  if (currentHour < 12) greeting = 'Good morning,';
+  else if (currentHour < 18) greeting = 'Good afternoon,';
+  // ────────────────────────────────────────────────────────────────────────
+
   // ── Firestore: create a service request when a card is tapped ─────────────
   const submitRequest = async (selectedService: string, requestDescription: string) => {
     try {
@@ -88,8 +96,8 @@ export default function CustomerHomeScreen() {
         {/* ── Header ── */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greetingSmall}>Good morning,</Text>
-            <Text style={styles.greetingBig}>Hello, User 👋</Text>
+            <Text style={styles.greetingSmall}>{greeting}</Text>
+            <Text style={styles.greetingBig}>{userName}</Text>
           </View>
           {/* Notification bell */}
           <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7}>
@@ -180,6 +188,35 @@ export default function CustomerHomeScreen() {
           )}
         </View>
 
+        {/* ── Agent Banner ── */}
+        <Card style={styles.agentBannerCard} mode="contained">
+          <View style={styles.bannerContent}>
+            {/* Decorative circles */}
+            <View style={styles.bannerCircle1} />
+            <View style={styles.bannerCircle2} />
+
+            <View style={styles.bannerTextBlock}>
+              <Text style={styles.bannerTag}>⚡ ON-DEMAND</Text>
+              <Text style={styles.bannerTitle}>
+                Request an Agent
+              </Text>
+              <Text style={styles.bannerSubtitle}>
+                Need in-person assistance? We'll come to you.
+              </Text>
+              <TouchableOpacity style={styles.bannerBtn} activeOpacity={0.85}>
+                <Text style={styles.bannerBtnText}>Request Now →</Text>
+              </TouchableOpacity>
+            </View>
+
+            <MaterialCommunityIcons
+              name="account-tie"
+              size={80}
+              color="rgba(255,255,255,0.12)"
+              style={styles.bannerIcon}
+            />
+          </View>
+        </Card>
+
         {/* ── Recent Activity ── */}
         <Text style={styles.sectionTitle}>Recent Activity</Text>
         <Card style={styles.emptyCard} mode="elevated">
@@ -269,6 +306,12 @@ const styles = StyleSheet.create({
   /* Banner */
   bannerCard: {
     backgroundColor: DARK_GREEN,
+    borderRadius: 20,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  agentBannerCard: {
+    backgroundColor: '#0A3D26',
     borderRadius: 20,
     marginBottom: 24,
     overflow: 'hidden',

@@ -212,7 +212,6 @@ export default function OtpScreen() {
                 <TextInput
                   mode="outlined"
                   label="Password"
-                  placeholder={authMode === 'login' ? 'Enter your password' : 'Create a password'}
                   secureTextEntry
                   autoCapitalize="none"
                   value={password}

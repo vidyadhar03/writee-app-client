@@ -35,7 +35,7 @@ export default function MobileLoginScreen() {
   const [loading, setLoading] = useState(false);
 
   // Auth mode: 'login' or 'signup'
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
 
   // ─── PHONE AUTH HANDLER (commented out for demo) ─────────────────────────
   // const handleGetOtp = async () => {
