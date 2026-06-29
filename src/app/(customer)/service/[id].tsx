@@ -7,11 +7,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { Button, Text, TextInput } from 'react-native-paper';
@@ -99,6 +101,19 @@ export default function ServiceBookingScreen() {
     setFormData((prev) => ({ ...prev, [fieldId]: value }));
 
   const submitRequest = async () => {
+    // 1. Strict Validation — check every form field in the current service config
+    const emptyField = currentConfig.fields.find(
+      (f) => !formData[f.id]?.trim()
+    );
+    if (emptyField) {
+      Alert.alert(
+        'Missing Details',
+        `Please fill out all mandatory fields before proceeding.\n\n"${emptyField.label}" is required.`
+      );
+      return; // Stop execution
+    }
+
+    // 2. Auth guard
     const user = auth().currentUser;
     if (!user) {
       Alert.alert('Not signed in', 'Please log in again.');
@@ -134,6 +149,7 @@ export default function ServiceBookingScreen() {
       setLoading(false);
     }
   };
+
 
   const handleTakePhoto = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
@@ -176,15 +192,15 @@ export default function ServiceBookingScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
           {/* ── Service Title ── */}
           <View style={styles.titleBlock}>
             <Text style={styles.serviceTag}>Booking Form</Text>
@@ -396,7 +412,8 @@ export default function ServiceBookingScreen() {
 
           {/* Bottom spacing so content isn't hidden behind the action bar */}
           <View style={styles.bottomPad} />
-        </ScrollView>
+          </ScrollView>
+        </TouchableWithoutFeedback>
 
         {/* ── Pinned Action Bar ── */}
         <View style={styles.actionBar}>

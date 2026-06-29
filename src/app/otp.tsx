@@ -17,7 +17,16 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import {
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
 import { Button, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -33,7 +42,7 @@ export default function OtpScreen() {
   // ─────────────────────────────────────────────────────────────────────────
 
   // EMAIL AUTH PARAMS
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const { email, authMode } = useLocalSearchParams<{ email: string; authMode: 'login' | 'signup' }>();
 
   // ─── PHONE AUTH STATE (commented out for demo) ───────────────────────────
   // const [otp, setOtp] = useState('');
@@ -94,7 +103,7 @@ export default function OtpScreen() {
   // };
   // ─────────────────────────────────────────────────────────────────────────
 
-  // EMAIL AUTH HANDLER
+  // EMAIL AUTH HANDLER — strictly respects authMode
   const handlePasswordSubmit = async () => {
     if (!email || !password) return;
     setLoading(true);
@@ -102,49 +111,45 @@ export default function OtpScreen() {
       const auth = getAuth();
       let user;
 
-      try {
-        // Try to sign in
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        user = userCredential.user;
-      } catch (error: any) {
-        // If user doesn't exist, create them
-        if (
-          error.code === 'auth/user-not-found' ||
-          error.code === 'auth/invalid-credential'
-        ) {
-          const newUserCredential = await createUserWithEmailAndPassword(
-            auth,
-            email,
-            password
-          );
-          user = newUserCredential.user;
-        } else {
-          throw error;
+      if (authMode === 'login') {
+        try {
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          user = userCredential.user;
+        } catch (error: any) {
+          Alert.alert('Login Failed', 'Account not found or incorrect password.');
+          return;
+        }
+      } else {
+        // authMode === 'signup'
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          user = userCredential.user;
+
+          // Sync new user to Firestore
+          await firestore().collection('users').doc(user.uid).set({
+            uid: user.uid,
+            email: user.email,
+            role: 'customer',
+            activeStatus: 'active',
+            createdAt: firestore.FieldValue.serverTimestamp(),
+            updatedAt: firestore.FieldValue.serverTimestamp(),
+          });
+        } catch (error: any) {
+          if (error.code === 'auth/email-already-in-use') {
+            Alert.alert(
+              'Sign Up Failed',
+              'An account with this email already exists. Please log in.'
+            );
+          } else {
+            Alert.alert('Error', error.message);
+          }
+          return;
         }
       }
 
-      // Sync with Firestore
-      const userRef = firestore().collection('users').doc(user.uid);
-      const userDoc = await userRef.get();
-
-      if (!userDoc.exists) {
-        await userRef.set({
-          uid: user.uid,
-          email: user.email, // Use email instead of phoneNumber
-          role: 'customer',
-          activeStatus: 'active',
-          createdAt: firestore.FieldValue.serverTimestamp(),
-          updatedAt: firestore.FieldValue.serverTimestamp(),
-        });
-      }
-
       router.replace('/(customer)');
-    } catch (error: any) {
-      console.error('Email/Password error:', error);
-      Alert.alert(
-        'Authentication Failed',
-        error?.message ?? 'Please check your credentials and try again.'
-      );
+    } catch (error) {
+      console.error('Auth error:', error);
     } finally {
       setLoading(false);
     }
@@ -152,147 +157,165 @@ export default function OtpScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        {/* Back nav */}
-        <Button
-          mode="text"
-          onPress={() => router.back()}
-          style={styles.backButton}
-          labelStyle={styles.backLabel}
-          icon="arrow-left"
-          textColor={DARK_GREEN}
-        >
-          Back
-        </Button>
-
-        {/* Icon */}
-        <View style={styles.iconContainer}>
-          <View style={styles.iconCircle}>
-            <Text style={styles.iconEmoji}>🔐</Text>
-          </View>
-        </View>
-
-        {/* Header — EMAIL AUTH */}
-        <View style={styles.headerContainer}>
-          <Text style={styles.header}>Enter your password</Text>
-          <Text style={styles.subheader}>
-            {email ? `Signing in as ${email}` : 'Set or enter your password to continue.'}
-          </Text>
-        </View>
-
-        {/* ── PHONE AUTH HEADER (commented out for demo) ─────────────────────
-        <View style={styles.headerContainer}>
-          <Text style={styles.header}>Verify your number</Text>
-          <Text style={styles.subheader}>
-            Enter the 6-digit code sent to your phone.
-          </Text>
-        </View>
-        ── END PHONE AUTH HEADER ─────────────────────────────────────────── */}
-
-        {/* Password Card — EMAIL AUTH */}
-        <View style={styles.card}>
-          <TextInput
-            mode="outlined"
-            label="Password"
-            placeholder="Enter your password"
-            secureTextEntry
-            autoCapitalize="none"
-            value={password}
-            onChangeText={setPassword}
-            autoFocus
-            outlineStyle={styles.inputOutline}
-            style={styles.input}
-            contentStyle={styles.inputContent}
-            outlineColor="#D0D5DD"
-            activeOutlineColor={PRIMARY}
-          />
-
-          <Button
-            mode="contained"
-            onPress={handlePasswordSubmit}
-            disabled={!password || loading}
-            loading={loading}
-            style={[
-              styles.button,
-              (!password || loading) && styles.buttonDisabled,
-            ]}
-            contentStyle={styles.buttonContent}
-            labelStyle={styles.buttonLabel}
-            buttonColor={PRIMARY}
-            icon="shield-check"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1 }}
+            keyboardShouldPersistTaps="handled"
           >
-            {loading ? 'Signing in…' : 'Verify & Login'}
-          </Button>
-        </View>
-
-        {/* ── PHONE AUTH OTP CARD (commented out for demo) ───────────────────
-        <View style={styles.card}>
-          <TextInput
-            ref={inputRef}
-            mode="outlined"
-            label="OTP Code"
-            placeholder="• • • • • •"
-            keyboardType="number-pad"
-            maxLength={6}
-            value={otp}
-            onChangeText={setOtp}
-            autoFocus
-            outlineStyle={styles.inputOutline}
-            style={styles.input}
-            contentStyle={styles.inputContent}
-            outlineColor="#D0D5DD"
-            activeOutlineColor={PRIMARY}
-          />
-
-          <View style={styles.dotsRow}>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.dot,
-                  i < otp.length ? styles.dotFilled : styles.dotEmpty,
-                ]}
-              />
-            ))}
-          </View>
-
-          <Button
-            mode="contained"
-            onPress={handleVerify}
-            disabled={otp.length !== 6 || loading}
-            loading={loading}
-            style={[
-              styles.button,
-              (otp.length !== 6 || loading) && styles.buttonDisabled,
-            ]}
-            contentStyle={styles.buttonContent}
-            labelStyle={styles.buttonLabel}
-            buttonColor={PRIMARY}
-            icon="shield-check"
-          >
-            {loading ? 'Verifying…' : 'Verify & Login'}
-          </Button>
-        </View>
-
-        <View style={styles.resendContainer}>
-          {resent ? (
-            <Text style={styles.resentText}>✅ OTP sent again!</Text>
-          ) : (
-            <>
-              <Text style={styles.resendPrompt}>Didn't receive the code?</Text>
+            <View style={styles.container}>
+              {/* Back nav */}
               <Button
                 mode="text"
-                onPress={handleResend}
-                labelStyle={styles.resendLabel}
+                onPress={() => router.back()}
+                style={styles.backButton}
+                labelStyle={styles.backLabel}
+                icon="arrow-left"
                 textColor={DARK_GREEN}
               >
-                Resend OTP
+                Back
               </Button>
-            </>
-          )}
-        </View>
-        ── END PHONE AUTH OTP CARD ──────────────────────────────────────── */}
-      </View>
+
+              {/* Icon */}
+              <View style={styles.iconContainer}>
+                <View style={styles.iconCircle}>
+                  <Text style={styles.iconEmoji}>🔐</Text>
+                </View>
+              </View>
+
+              {/* Header — EMAIL AUTH */}
+              <View style={styles.headerContainer}>
+                <Text style={styles.header}>
+                  {authMode === 'login' ? 'Welcome back' : 'Create your account'}
+                </Text>
+                <Text style={styles.subheader}>
+                  {authMode === 'login'
+                    ? `Enter your password to sign in as ${email}`
+                    : `Set a password for ${email}`}
+                </Text>
+              </View>
+
+              {/* ── PHONE AUTH HEADER (commented out for demo) ─────────────────────
+              <View style={styles.headerContainer}>
+                <Text style={styles.header}>Verify your number</Text>
+                <Text style={styles.subheader}>
+                  Enter the 6-digit code sent to your phone.
+                </Text>
+              </View>
+              ── END PHONE AUTH HEADER ─────────────────────────────────────────── */}
+
+              {/* Password Card — EMAIL AUTH */}
+              <View style={styles.card}>
+                <TextInput
+                  mode="outlined"
+                  label="Password"
+                  placeholder={authMode === 'login' ? 'Enter your password' : 'Create a password'}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  value={password}
+                  onChangeText={setPassword}
+                  autoFocus
+                  outlineStyle={styles.inputOutline}
+                  style={styles.input}
+                  contentStyle={styles.inputContent}
+                  outlineColor="#D0D5DD"
+                  activeOutlineColor={PRIMARY}
+                />
+
+                <Button
+                  mode="contained"
+                  onPress={handlePasswordSubmit}
+                  disabled={!password || loading}
+                  loading={loading}
+                  style={[
+                    styles.button,
+                    (!password || loading) && styles.buttonDisabled,
+                  ]}
+                  contentStyle={styles.buttonContent}
+                  labelStyle={styles.buttonLabel}
+                  buttonColor={PRIMARY}
+                  icon="shield-check"
+                >
+                  {loading
+                    ? authMode === 'login' ? 'Signing in…' : 'Creating account…'
+                    : authMode === 'login' ? 'Login' : 'Create Account'}
+                </Button>
+              </View>
+
+              {/* ── PHONE AUTH OTP CARD (commented out for demo) ───────────────────
+              <View style={styles.card}>
+                <TextInput
+                  ref={inputRef}
+                  mode="outlined"
+                  label="OTP Code"
+                  placeholder="• • • • • •"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  value={otp}
+                  onChangeText={setOtp}
+                  autoFocus
+                  outlineStyle={styles.inputOutline}
+                  style={styles.input}
+                  contentStyle={styles.inputContent}
+                  outlineColor="#D0D5DD"
+                  activeOutlineColor={PRIMARY}
+                />
+
+                <View style={styles.dotsRow}>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.dot,
+                        i < otp.length ? styles.dotFilled : styles.dotEmpty,
+                      ]}
+                    />
+                  ))}
+                </View>
+
+                <Button
+                  mode="contained"
+                  onPress={handleVerify}
+                  disabled={otp.length !== 6 || loading}
+                  loading={loading}
+                  style={[
+                    styles.button,
+                    (otp.length !== 6 || loading) && styles.buttonDisabled,
+                  ]}
+                  contentStyle={styles.buttonContent}
+                  labelStyle={styles.buttonLabel}
+                  buttonColor={PRIMARY}
+                  icon="shield-check"
+                >
+                  {loading ? 'Verifying…' : 'Verify & Login'}
+                </Button>
+              </View>
+
+              <View style={styles.resendContainer}>
+                {resent ? (
+                  <Text style={styles.resentText}>✅ OTP sent again!</Text>
+                ) : (
+                  <>
+                    <Text style={styles.resendPrompt}>Didn't receive the code?</Text>
+                    <Button
+                      mode="text"
+                      onPress={handleResend}
+                      labelStyle={styles.resendLabel}
+                      textColor={DARK_GREEN}
+                    >
+                      Resend OTP
+                    </Button>
+                  </>
+                )}
+              </View>
+              ── END PHONE AUTH OTP CARD ──────────────────────────────────────── */}
+            </View>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
