@@ -1,6 +1,7 @@
+import auth, { signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { Button, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,9 +12,36 @@ const BG = '#F7F9F8';
 export default function MobileLoginScreen() {
   const router = useRouter();
   const [mobile, setMobile] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleGetOtp = () => {
-    router.push('/otp');
+  const handleGetOtp = async () => {
+    const formattedPhone = `+91${mobile}`;
+    setLoading(true);
+    try {
+      // Force testing mode to bypass Apple's APNs requirement for dummy numbers
+      auth().settings.appVerificationDisabledForTesting = true;
+
+      // Clean the phone number string
+      const cleanPhone = formattedPhone.replace(/\s+/g, '');
+
+      // Request OTP
+      const confirmation = await signInWithPhoneNumber(auth(), cleanPhone);
+      router.push({
+        pathname: '/otp',
+        params: {
+          verificationId: confirmation.verificationId,
+          phone: formattedPhone,
+        },
+      });
+    } catch (error: any) {
+      console.error('OTP send error:', error);
+      Alert.alert(
+        'Failed to send OTP',
+        error?.message ?? 'Please check the phone number and try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -59,16 +87,17 @@ export default function MobileLoginScreen() {
           <Button
             mode="contained"
             onPress={handleGetOtp}
-            disabled={mobile.length !== 10}
+            disabled={mobile.length !== 10 || loading}
+            loading={loading}
             style={[
               styles.button,
-              mobile.length !== 10 && styles.buttonDisabled,
+              (mobile.length !== 10 || loading) && styles.buttonDisabled,
             ]}
             contentStyle={styles.buttonContent}
             labelStyle={styles.buttonLabel}
             buttonColor={PRIMARY}
           >
-            Get OTP
+            {loading ? 'Sending OTP…' : 'Get OTP'}
           </Button>
         </View>
 

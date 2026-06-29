@@ -1,6 +1,7 @@
-import { useRouter } from 'expo-router';
+import { auth, firestore } from '@/config/firebase';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { Button, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,12 +11,52 @@ const BG = '#F7F9F8';
 
 export default function OtpScreen() {
   const router = useRouter();
+  const { verificationId } = useLocalSearchParams<{ verificationId: string }>();
   const [otp, setOtp] = useState('');
   const [resent, setResent] = useState(false);
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef<any>(null);
 
-  const handleVerify = () => {
-    router.replace('/(customer)');
+  const handleVerify = async () => {
+    if (!verificationId) {
+      Alert.alert('Error', 'Verification ID is missing. Please go back and try again.');
+      return;
+    }
+    setLoading(true);
+    try {
+      // Build credential and sign in using native RNFirebase
+      const credential = auth.PhoneAuthProvider.credential(verificationId, otp);
+      await auth().signInWithCredential(credential);
+
+      // Sync user record to Firestore
+      const user = auth().currentUser;
+      if (user) {
+        const userRef = firestore().collection('users').doc(user.uid);
+        const userDoc = await userRef.get();
+
+        if (!userDoc.exists) {
+          await userRef.set({
+            uid: user.uid,
+            phoneNumber: user.phoneNumber,
+            role: 'customer',
+            activeStatus: 'active',
+            createdAt: firestore.FieldValue.serverTimestamp(),
+            updatedAt: firestore.FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      router.replace('/(customer)');
+    } catch (error: any) {
+      console.error('OTP verification error:', error);
+      const message =
+        error?.code === 'auth/invalid-verification-code'
+          ? 'The OTP you entered is incorrect. Please check and try again.'
+          : error?.message ?? 'Verification failed. Please try again.';
+      Alert.alert('Verification Failed', message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResend = () => {
@@ -88,17 +129,18 @@ export default function OtpScreen() {
           <Button
             mode="contained"
             onPress={handleVerify}
-            disabled={otp.length !== 6}
+            disabled={otp.length !== 6 || loading}
+            loading={loading}
             style={[
               styles.button,
-              otp.length !== 6 && styles.buttonDisabled,
+              (otp.length !== 6 || loading) && styles.buttonDisabled,
             ]}
             contentStyle={styles.buttonContent}
             labelStyle={styles.buttonLabel}
             buttonColor={PRIMARY}
             icon="shield-check"
           >
-            Verify &amp; Login
+            {loading ? 'Verifying…' : 'Verify & Login'}
           </Button>
         </View>
 

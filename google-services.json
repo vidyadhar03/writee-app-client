@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "482833779323",
+    "project_id": "writeeapp-d9fc2",
+    "storage_bucket": "writeeapp-d9fc2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:482833779323:android:42d28a7f414185df98f0de",
+        "android_client_info": {
+          "package_name": "com.writee.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrBkCh46GMGS8IXCf3CgeJ4w70C1ENdoo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
